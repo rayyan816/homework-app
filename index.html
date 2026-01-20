@@ -87,9 +87,9 @@
     <div class="blob blob-2 animate-float" style="animation-delay: 1.5s;"></div>
 
     <!-- Server Status Indicator -->
-    <div id="server-status" class="fixed top-4 left-4 z-50 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-600 flex items-center gap-2 shadow-sm transition-colors duration-500">
+    <div id="server-status" onclick="toggleSettings()" class="fixed top-4 left-4 z-50 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500 flex items-center gap-2 shadow-sm transition-colors duration-500 cursor-pointer hover:bg-slate-200">
         <span class="w-2 h-2 rounded-full bg-current animate-pulse"></span>
-        <span id="server-text">Connecting to Server...</span>
+        <span id="server-text">Checking Status...</span>
     </div>
 
     <!-- Notification Toast -->
@@ -98,6 +98,57 @@
         <div>
             <h4 id="toast-title" class="font-bold text-sm">Notification</h4>
             <p id="toast-message" class="text-xs text-gray-600">Message goes here</p>
+        </div>
+    </div>
+
+    <!-- Settings Button -->
+    <button onclick="toggleSettings()" class="fixed bottom-4 right-4 z-40 bg-slate-800 text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform cursor-pointer" title="Connection Settings">
+        ⚙️
+    </button>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden-section flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl animate-pop-in relative">
+            <button onclick="toggleSettings()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold cursor-pointer">&times;</button>
+            <h3 class="text-2xl font-bold mb-4">⚙️ App Settings</h3>
+            
+            <div class="space-y-4">
+                <div class="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                    <h4 class="font-bold text-blue-800 mb-2">Storage Mode</h4>
+                    <div class="flex gap-2">
+                        <button onclick="setStorageMode('local')" id="btn-mode-local" class="flex-1 py-2 rounded-lg text-sm font-bold border border-blue-200 transition-colors">
+                            Browser (Offline)
+                        </button>
+                        <button onclick="setStorageMode('server')" id="btn-mode-server" class="flex-1 py-2 rounded-lg text-sm font-bold border border-blue-200 transition-colors">
+                            Laptop Server
+                        </button>
+                    </div>
+                    <p id="storage-desc" class="text-xs text-slate-500 mt-2 leading-relaxed">
+                        Currently saving data to <b>Browser LocalStorage</b>. Data stays on this device only.
+                    </p>
+                </div>
+
+                <div id="server-config" class="hidden-section">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Server URL</label>
+                    <input type="text" id="server-url-input" placeholder="https://..." class="w-full px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 focus:border-blue-500 outline-none text-sm">
+                    <p class="text-xs text-slate-400 mt-1">Paste your LocalTunnel URL here.</p>
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="saveServerUrl()" class="flex-1 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 cursor-pointer">Connect</button>
+                        <button onclick="resetServerUrl()" class="px-3 py-2 bg-slate-200 text-slate-600 rounded-lg font-bold text-sm hover:bg-slate-300 cursor-pointer" title="Reset to Localhost">🔄 Reset</button>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-slate-100">
+                        <p class="text-xs text-slate-500 mb-2">Troubleshooting:</p>
+                        <a id="tunnel-link-btn" href="#" target="_blank" class="block text-center w-full py-2 border border-slate-200 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-50">
+                            🔗 Open Server URL (Unlock Tunnel)
+                        </a>
+                    </div>
+                </div>
+
+                <div class="text-center pt-2">
+                    <p class="text-xs text-slate-300">HomeworkHero v1.0 (Live) 🚀</p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -123,7 +174,7 @@
                 </div>
             </div>
             <p class="mt-8 text-xs text-slate-400 max-w-xs mx-auto">
-                <span class="font-bold">Note:</span> Make sure your laptop server (node server.js) is running to save data to your SSD!
+                <span class="font-bold">Note:</span> Use the Settings ⚙️ to switch between "Browser Storage" (Vercel) and "Laptop Server" (SSD).
             </p>
         </div>
 
@@ -376,107 +427,355 @@
 
     <script>
         // --- API & Config ---
-        const API_URL = '/api'; // Automatically connects to the server hosting the site
+        // Defaults to relative path, but can be overridden by settings
+        let SERVER_URL = localStorage.getItem('server_url') || ''; 
+        // If empty, we might try '/api', but for Vercel deployment without backend, we want to default to LocalStorage fallback if /api fails
         
-        const API = {
-            async health() {
-                try {
-                    const res = await fetch(`${API_URL}/health`);
-                    return res.ok;
-                } catch (e) { return false; }
-            },
-            async login(data) {
-                const res = await fetch(`${API_URL}/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                return { ok: res.ok, data: await res.json() };
-            },
-            async signup(data) {
-                const res = await fetch(`${API_URL}/signup`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                return { ok: res.ok, data: await res.json() };
-            },
-            async createClass(data) {
-                const res = await fetch(`${API_URL}/classes/create`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                return await res.json();
-            },
-            async joinClass(data) {
-                const res = await fetch(`${API_URL}/classes/join`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                return { ok: res.ok, data: await res.json() };
-            },
-            async getClasses() {
-                const res = await fetch(`${API_URL}/classes`);
-                return await res.json();
-            },
-            async getSubmissions() {
-                const res = await fetch(`${API_URL}/submissions`);
-                return await res.json();
-            },
-            async submitHomework(data) {
-                const res = await fetch(`${API_URL}/submissions`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                return await res.json();
-            },
-            async approveSubmission(id) {
-                const res = await fetch(`${API_URL}/submissions/approve`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id })
-                });
-                return await res.json();
-            },
-            async getUser(username) {
-                const res = await fetch(`${API_URL}/user/${username}`);
-                return res.ok ? await res.json() : null;
-            }
-        };
-
-        // --- State Management ---
         const State = {
             currentUser: null,
             view: 'landing',
             authMode: 'login',
             selectedRole: null,
-            isConnected: false
+            isConnected: false,
+            storageMode: localStorage.getItem('storage_mode') || 'local' // 'local' or 'server'
+        };
+
+        // --- Data Facade (Handles Switching between Server and LocalStorage) ---
+        // Helper to add tunnel bypass headers to all requests
+        const fetchWithTunnel = async (url, options = {}) => {
+            const headers = { 
+                'Content-Type': 'application/json',
+                'bypass-tunnel-reminder': 'true', // KEY FIX: Bypasses the tunnel warning page
+                ...(options.headers || {})
+            };
+            return fetch(url, { ...options, headers });
+        };
+
+        const DataProvider = {
+            getEndpoint(path) {
+                return SERVER_URL ? `${SERVER_URL}${path}` : `/api${path}`;
+            },
+
+            // --- LOCAL STORAGE MOCK DB ---
+            localDB: {
+                get() {
+                    const data = localStorage.getItem('hh_data');
+                    if (data) return JSON.parse(data);
+                    return { users: [], classes: [], submissions: [] };
+                },
+                save(data) {
+                    localStorage.setItem('hh_data', JSON.stringify(data));
+                }
+            },
+
+            async health() {
+                if (State.storageMode === 'local') return true;
+                try {
+                    const res = await fetchWithTunnel(this.getEndpoint('/health'));
+                    return res.ok;
+                } catch (e) { return false; }
+            },
+
+            async login(data) {
+                if (State.storageMode === 'local') {
+                    await new Promise(r => setTimeout(r, 500));
+                    const db = this.localDB.get();
+                    const user = db.users.find(u => u.username === data.username && u.password === data.password);
+                    if (user) {
+                        if (user.role !== data.role) return { ok: false, data: { error: `Please login as a ${user.role}` } };
+                        return { ok: true, data: user };
+                    }
+                    return { ok: false, data: { error: 'Invalid credentials' } };
+                }
+                
+                try {
+                    const res = await fetchWithTunnel(this.getEndpoint('/login'), {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+                    return { ok: res.ok, data: await res.json() };
+                } catch (e) { return { ok: false, data: { error: 'Connection Error' } }; }
+            },
+
+            async signup(data) {
+                if (State.storageMode === 'local') {
+                    await new Promise(r => setTimeout(r, 500));
+                    const db = this.localDB.get();
+                    if (db.users.find(u => u.username === data.username)) return { ok: false, data: { error: 'Username taken' } };
+                    
+                    const newUser = { ...data, enrolledClasses: [], createdClasses: [] };
+                    db.users.push(newUser);
+                    this.localDB.save(db);
+                    return { ok: true, data: newUser };
+                }
+
+                try {
+                    const res = await fetchWithTunnel(this.getEndpoint('/signup'), {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+                    return { ok: res.ok, data: await res.json() };
+                } catch (e) { return { ok: false, data: { error: 'Connection Error' } }; }
+            },
+
+            async createClass(data) {
+                if (State.storageMode === 'local') {
+                    const db = this.localDB.get();
+                    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+                    const newClass = { 
+                        id: Date.now().toString(), 
+                        ...data, 
+                        code 
+                    };
+                    db.classes.push(newClass);
+                    this.localDB.save(db);
+                    return newClass;
+                }
+
+                const res = await fetchWithTunnel(this.getEndpoint('/classes/create'), {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                return await res.json();
+            },
+
+            async joinClass(data) {
+                if (State.storageMode === 'local') {
+                    const db = this.localDB.get();
+                    const targetClass = db.classes.find(c => c.code === data.code);
+                    if (!targetClass) return { ok: false, data: { error: 'Invalid Code' } };
+                    
+                    const userIndex = db.users.findIndex(u => u.username === data.studentUsername);
+                    const user = db.users[userIndex];
+                    if (!user.enrolledClasses) user.enrolledClasses = [];
+                    if (!user.enrolledClasses.includes(data.code)) {
+                        user.enrolledClasses.push(data.code);
+                        this.localDB.save(db);
+                    }
+                    return { ok: true, data: { success: true, className: targetClass.name, user } };
+                }
+
+                const res = await fetchWithTunnel(this.getEndpoint('/classes/join'), {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                return { ok: res.ok, data: await res.json() };
+            },
+
+            async getClasses() {
+                if (State.storageMode === 'local') return this.localDB.get().classes;
+                const res = await fetchWithTunnel(this.getEndpoint('/classes'));
+                return await res.json();
+            },
+
+            async getSubmissions() {
+                if (State.storageMode === 'local') return this.localDB.get().submissions;
+                const res = await fetchWithTunnel(this.getEndpoint('/submissions'));
+                return await res.json();
+            },
+
+            async submitHomework(data) {
+                if (State.storageMode === 'local') {
+                    const db = this.localDB.get();
+                    const sub = { ...data, id: Date.now().toString(), timestamp: Date.now(), status: 'pending' };
+                    db.submissions.push(sub);
+                    this.localDB.save(db);
+                    return sub;
+                }
+
+                const res = await fetchWithTunnel(this.getEndpoint('/submissions'), {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                return await res.json();
+            },
+
+            async approveSubmission(id) {
+                if (State.storageMode === 'local') {
+                    const db = this.localDB.get();
+                    const sub = db.submissions.find(s => s.id === id);
+                    if (sub) {
+                        sub.status = 'approved';
+                        this.localDB.save(db);
+                    }
+                    return sub;
+                }
+
+                const res = await fetchWithTunnel(this.getEndpoint('/submissions/approve'), {
+                    method: 'POST',
+                    body: JSON.stringify({ id })
+                });
+                return await res.json();
+            },
+
+            async getUser(username) {
+                if (State.storageMode === 'local') return this.localDB.get().users.find(u => u.username === username);
+                try {
+                    const res = await fetchWithTunnel(this.getEndpoint(`/user/${username}`));
+                    return res.ok ? await res.json() : null;
+                } catch (e) { return null; }
+            }
         };
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', async () => {
+            initSettings();
             await checkServer();
-            // Poll server status every 10 seconds
             setInterval(checkServer, 10000);
-            
             loadSession();
         });
 
+        function initSettings() {
+            // Auto-detect localhost environment to fix "Offline" issue after restart
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                // If we are on localhost, we likely don't need a custom SERVER_URL unless specifically testing
+                // We prefer the relative path /api
+                if (SERVER_URL && SERVER_URL.includes('loca.lt')) {
+                    console.log("Detected localhost but found old Tunnel URL. Resetting...");
+                    SERVER_URL = "";
+                    localStorage.removeItem('server_url');
+                }
+            }
+
+            setStorageMode(State.storageMode, false);
+            if (SERVER_URL) {
+                document.getElementById('server-url-input').value = SERVER_URL;
+                const linkBtn = document.getElementById('tunnel-link-btn');
+                linkBtn.href = SERVER_URL;
+                linkBtn.classList.remove('pointer-events-none', 'opacity-50');
+            }
+        }
+
+        function toggleSettings() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.toggle('hidden-section');
+        }
+
+        function setStorageMode(mode, refresh = true) {
+            State.storageMode = mode;
+            localStorage.setItem('storage_mode', mode);
+            
+            const btnLocal = document.getElementById('btn-mode-local');
+            const btnServer = document.getElementById('btn-mode-server');
+            const serverConfig = document.getElementById('server-config');
+            const desc = document.getElementById('storage-desc');
+
+            if (mode === 'local') {
+                btnLocal.classList.add('bg-blue-600', 'text-white');
+                btnLocal.classList.remove('text-slate-800');
+                btnServer.classList.remove('bg-blue-600', 'text-white');
+                serverConfig.classList.add('hidden-section');
+                desc.innerHTML = `Running in <b>Offline Mode</b> using Browser Storage.<br>Data is saved on this device but works on Vercel!`;
+            } else {
+                btnServer.classList.add('bg-blue-600', 'text-white');
+                btnLocal.classList.remove('bg-blue-600', 'text-white');
+                serverConfig.classList.remove('hidden-section');
+                desc.innerHTML = `Connect to your <b>Laptop Server</b> to use 12TB SSD.<br>Enter your Tunnel URL below.`;
+            }
+
+            if (refresh) checkServer();
+        }
+
+        function saveServerUrl() {
+            const url = document.getElementById('server-url-input').value.trim();
+            // Remove trailing slash
+            SERVER_URL = url.replace(/\/$/, "");
+            localStorage.setItem('server_url', SERVER_URL);
+            updateTunnelLink();
+            checkServer();
+            showToast('Saved', 'Server URL updated!');
+            toggleSettings();
+        }
+
+        function resetServerUrl() {
+            SERVER_URL = "";
+            localStorage.removeItem('server_url');
+            document.getElementById('server-url-input').value = "";
+            updateTunnelLink();
+            checkServer();
+            showToast('Reset', 'Switched to Local Connection');
+        }
+
+        function updateTunnelLink() {
+            const linkBtn = document.getElementById('tunnel-link-btn');
+            if(SERVER_URL) {
+                linkBtn.href = SERVER_URL;
+                linkBtn.classList.remove('pointer-events-none', 'opacity-50');
+                linkBtn.innerText = "🔗 Open Server URL (Unlock Tunnel)";
+            } else {
+                linkBtn.href = "#";
+                linkBtn.classList.add('pointer-events-none', 'opacity-50');
+                linkBtn.innerText = "🔗 No External Link Needed";
+            }
+        }
+
         async function checkServer() {
-            const isUp = await API.health();
-            State.isConnected = isUp;
+            // If in local mode, we are always "connected" to the local DB
+            if (State.storageMode === 'local') {
+                State.isConnected = true;
+                updateStatusIndicator(true, "Browser Storage (Offline Mode)");
+                return;
+            }
+
+            // If we are in Server mode but NO URL is set...
+            // 1. If we are on Localhost, that's fine! We use relative paths.
+            // 2. If we are on Vercel (not localhost), we NEED a URL.
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            
+            if (!SERVER_URL && !isLocalhost) {
+                State.isConnected = false;
+                updateStatusIndicator(false, "⚠️ Enter Server URL");
+                return;
+            }
+
+            // If we have a server URL, we try to hit it
+            try {
+                // Use the fetchWithTunnel helper to bypass warnings
+                const url = SERVER_URL ? SERVER_URL + '/api/health' : '/api/health';
+                const res = await fetchWithTunnel(url);
+                
+                // If content type is text/html, it's likely the tunnel warning page
+                const contentType = res.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") === -1) {
+                    State.isConnected = false;
+                    updateStatusIndicator(false, "⚠️ Action Required: Unlock Tunnel");
+                    showToast("Tunnel Locked", "Click Settings ⚙️ -> Click Link to Unlock");
+                    return;
+                }
+
+                if (res.ok) {
+                    State.isConnected = true;
+                    updateStatusIndicator(true, "Connected to Laptop SSD");
+                } else {
+                    throw new Error('Server error');
+                }
+            } catch (e) {
+                State.isConnected = false;
+                // If the user hasn't set a URL but is trying to use Server Mode on Vercel
+                if (!SERVER_URL && window.location.hostname !== 'localhost') {
+                    updateStatusIndicator(false, "⚠️ Enter Server URL");
+                } else {
+                    updateStatusIndicator(false, "Server Disconnected");
+                }
+            }
+        }
+
+        function updateStatusIndicator(isUp, text) {
             const statusEl = document.getElementById('server-status');
             const textEl = document.getElementById('server-text');
+            textEl.innerText = text;
             
             if (isUp) {
                 statusEl.className = 'fixed top-4 left-4 z-50 px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-600 flex items-center gap-2 shadow-sm transition-colors duration-500';
-                textEl.innerText = "Laptop SSD Server Connected";
             } else {
-                statusEl.className = 'fixed top-4 left-4 z-50 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-600 flex items-center gap-2 shadow-sm transition-colors duration-500';
-                textEl.innerText = "Server Offline (Run 'node server.js')";
+                // Check if it's the Tunnel Warning Page (Common issue with localtunnel)
+                if (State.storageMode === 'server' && !isUp && text.includes("Unlock")) {
+                    statusEl.className = 'fixed top-4 left-4 z-50 px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 flex items-center gap-2 shadow-sm transition-colors duration-500 border border-yellow-200 cursor-pointer';
+                    statusEl.onclick = toggleSettings;
+                } else {
+                    statusEl.className = 'fixed top-4 left-4 z-50 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-600 flex items-center gap-2 shadow-sm transition-colors duration-500';
+                    statusEl.onclick = null;
+                }
             }
         }
 
@@ -484,13 +783,11 @@
             const userJson = localStorage.getItem('currentUser');
             if (userJson) {
                 let user = JSON.parse(userJson);
-                // Try to refresh data from server if online
-                if (State.isConnected) {
-                    const refreshed = await API.getUser(user.username);
-                    if (refreshed) {
-                        user = refreshed;
-                        localStorage.setItem('currentUser', JSON.stringify(user));
-                    }
+                // Try refresh
+                const refreshed = await DataProvider.getUser(user.username);
+                if (refreshed) {
+                    user = refreshed;
+                    localStorage.setItem('currentUser', JSON.stringify(user));
                 }
                 
                 State.currentUser = user;
@@ -571,7 +868,8 @@
         // --- Auth Logic ---
         async function handleAuth(e) {
             e.preventDefault();
-            if (!State.isConnected) return showToast('Error', 'Server is offline. Cannot login/signup.');
+            // In local mode, isConnected is true. In server mode, it must be true.
+            if (!State.isConnected && State.storageMode !== 'local') return showToast('Error', 'Server is offline. Switch to Offline Mode?');
 
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
@@ -585,20 +883,22 @@
                     const confirmPassword = document.getElementById('confirm-password').value;
                     if (password !== confirmPassword) {
                         showToast('Error', 'Passwords do not match');
+                        submitBtn.disabled = false;
+                        submitBtn.innerText = "Let's Go! 🚀";
                         return;
                     }
 
-                    const { ok, data } = await API.signup({ username, password, role: State.selectedRole });
+                    const { ok, data } = await DataProvider.signup({ username, password, role: State.selectedRole });
                     if (ok) {
                         loginUser(data);
                         triggerConfetti();
-                        showToast('Success', 'Account created on SSD! 🎉');
+                        showToast('Success', State.storageMode === 'server' ? 'Account created on SSD! 🎉' : 'Account created in Browser! 🎉');
                     } else {
                         showToast('Error', data.error);
                     }
 
                 } else {
-                    const { ok, data } = await API.login({ username, password, role: State.selectedRole });
+                    const { ok, data } = await DataProvider.login({ username, password, role: State.selectedRole });
                     if (ok) {
                         loginUser(data);
                         triggerConfetti();
@@ -648,7 +948,7 @@
 
         async function createClass(e) {
             e.preventDefault();
-            if (!State.isConnected) return showToast('Error', 'Server offline');
+            if (!State.isConnected && State.storageMode !== 'local') return showToast('Error', 'Server offline');
 
             const nameInput = document.getElementById('class-name-input').value;
             const year = document.getElementById('class-year').value;
@@ -659,7 +959,7 @@
             if (section) fullClassName += ` (${year} - ${section})`;
             else fullClassName += ` (${year})`;
 
-            const newClass = await API.createClass({
+            const newClass = await DataProvider.createClass({
                 name: fullClassName,
                 year,
                 section,
@@ -675,10 +975,10 @@
         async function loadTeacherData() {
             document.getElementById('teacher-name-display').innerText = State.currentUser.username;
             
-            if (!State.isConnected) return;
+            if (!State.isConnected && State.storageMode !== 'local') return;
 
             // Fetch Classes
-            const allClasses = await API.getClasses();
+            const allClasses = await DataProvider.getClasses();
             const myClasses = allClasses.filter(c => c.teacherUsername === State.currentUser.username);
             
             const listEl = document.getElementById('teacher-classes-list');
@@ -706,7 +1006,7 @@
         }
 
         async function loadTeacherSubmissions(myClasses) {
-            const allSubmissions = await API.getSubmissions();
+            const allSubmissions = await DataProvider.getSubmissions();
             // Filter submissions for this teacher
             const mySubmissions = allSubmissions.filter(s => s.teacherUsername === State.currentUser.username && s.status === 'pending');
             
@@ -756,12 +1056,12 @@
         // --- Student Logic ---
         async function joinClass(e) {
             e.preventDefault();
-            if (!State.isConnected) return showToast('Error', 'Server offline');
+            if (!State.isConnected && State.storageMode !== 'local') return showToast('Error', 'Server offline');
 
             const codeInput = document.getElementById('class-code-input');
             const code = codeInput.value.trim().toUpperCase();
 
-            const { ok, data } = await API.joinClass({
+            const { ok, data } = await DataProvider.joinClass({
                 code,
                 studentUsername: State.currentUser.username
             });
@@ -779,11 +1079,11 @@
 
         async function loadStudentData() {
             document.getElementById('student-name-display').innerText = State.currentUser.username;
-            if (!State.isConnected) return;
+            if (!State.isConnected && State.storageMode !== 'local') return;
 
             // Load Classes
             const enrolledCodes = State.currentUser.enrolledClasses || [];
-            const allClasses = await API.getClasses();
+            const allClasses = await DataProvider.getClasses();
             const myClasses = allClasses.filter(c => enrolledCodes.includes(c.code));
             
             const listEl = document.getElementById('student-classes-list');
@@ -841,7 +1141,7 @@
 
         async function submitHomework(e) {
             e.preventDefault();
-            if (!State.isConnected) return showToast('Error', 'Server offline');
+            if (!State.isConnected && State.storageMode !== 'local') return showToast('Error', 'Server offline');
 
             const selectVal = document.getElementById('homework-class-select').value;
             const note = document.getElementById('homework-note').value;
@@ -866,10 +1166,10 @@
                     note: note
                 };
                 
-                await API.submitHomework(submissionData);
+                await DataProvider.submitHomework(submissionData);
                 
                 triggerConfetti();
-                showToast('Great Job! 🌟', 'Homework saved to Server SSD!');
+                showToast('Great Job! 🌟', State.storageMode === 'server' ? 'Homework saved to Server SSD!' : 'Homework saved to Browser!');
                 
                 e.target.reset();
                 clearImage();
@@ -878,7 +1178,7 @@
         }
 
         async function loadStudentSubmissions() {
-            const allSubmissions = await API.getSubmissions();
+            const allSubmissions = await DataProvider.getSubmissions();
             const mySubmissions = allSubmissions.filter(s => s.studentUsername === State.currentUser.username).reverse();
             
             const list = document.getElementById('student-submissions-list');
@@ -912,7 +1212,7 @@
         async function openReviewModal(subId) {
             // Need to find submission from API or cache. 
             // For simplicity, re-fetch all for finding one or store in local var
-            const all = await API.getSubmissions();
+            const all = await DataProvider.getSubmissions();
             const sub = all.find(s => s.id === subId);
             if(!sub) return;
 
@@ -931,11 +1231,11 @@
         }
 
         async function approveHomework(subId) {
-            if (!State.isConnected) return showToast('Error', 'Server offline');
+            if (!State.isConnected && State.storageMode !== 'local') return showToast('Error', 'Server offline');
             
-            await API.approveSubmission(subId);
+            await DataProvider.approveSubmission(subId);
             triggerConfetti();
-            showToast('Done!', 'Homework approved on Server.');
+            showToast('Done!', 'Homework approved.');
             closeModal();
             loadTeacherData();
         }
