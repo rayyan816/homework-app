@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartSchool Homework App</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #f0f9ff 0%, #cbebff 100%);
+            min-height: 100vh;
+        }
+
+        /* Custom Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes popIn {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        .animate-pop-in {
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .hidden-section {
+            display: none !important;
+        }
+
+        /* Blob Backgrounds */
+        .blob {
+            position: absolute;
+            filter: blur(40px);
+            z-index: -1;
+            opacity: 0.6;
+        }
+        .blob-1 { top: -10%; left: -10%; width: 300px; height: 300px; background: #bfdbfe; border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; }
+        .blob-2 { bottom: -10%; right: -10%; width: 400px; height: 400px; background: #ddd6fe; border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+        
+        /* Glassmorphism */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body class="text-slate-800 overflow-x-hidden relative">
+
+    <!-- Background Elements -->
+    <div class="blob blob-1 animate-float"></div>
+    <div class="blob blob-2 animate-float" style="animation-delay: 1.5s;"></div>
+
+    <!-- Server Status Indicator -->
+    <div id="server-status" class="fixed top-4 left-4 z-50 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-600 flex items-center gap-2 shadow-sm transition-colors duration-500">
+        <span class="w-2 h-2 rounded-full bg-current animate-pulse"></span>
+        <span id="server-text">Connecting to Server...</span>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed top-4 right-4 bg-white shadow-lg rounded-xl p-4 transform translate-x-full transition-transform duration-300 z-50 flex items-center gap-3 border-l-4 border-blue-500">
+        <div id="toast-icon" class="text-2xl">📢</div>
+        <div>
+            <h4 id="toast-title" class="font-bold text-sm">Notification</h4>
+            <p id="toast-message" class="text-xs text-gray-600">Message goes here</p>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div id="app" class="container mx-auto px-4 py-8 min-h-screen flex flex-col items-center justify-center">
+        
+        <!-- VIEW: LANDING / ROLE SELECTION -->
+        <div id="view-landing" class="w-full max-w-md text-center">
+            <h1 class="text-5xl font-extrabold text-blue-600 mb-2 animate-pop-in">Homework<span class="text-purple-600">Hero</span></h1>
+            <p class="text-slate-500 mb-10 text-lg animate-fade-in" style="animation-delay: 0.1s;">The fun way to manage school work!</p>
+            
+            <div class="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-xl border border-white/50 animate-fade-in" style="animation-delay: 0.2s;">
+                <h2 class="text-2xl font-bold mb-6">Who are you?</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="navigateToAuth('student')" class="group relative p-6 rounded-2xl bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 hover:border-blue-400 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer">
+                        <div class="text-5xl mb-3 group-hover:scale-110 transition-transform">🎒</div>
+                        <span class="font-bold text-blue-700 block">Student</span>
+                    </button>
+                    <button onclick="navigateToAuth('teacher')" class="group relative p-6 rounded-2xl bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 hover:border-purple-400 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer">
+                        <div class="text-5xl mb-3 group-hover:scale-110 transition-transform">🎓</div>
+                        <span class="font-bold text-purple-700 block">Teacher</span>
+                    </button>
+                </div>
+            </div>
+            <p class="mt-8 text-xs text-slate-400 max-w-xs mx-auto">
+                <span class="font-bold">Note:</span> Make sure your laptop server (node server.js) is running to save data to your SSD!
+            </p>
+        </div>
+
+        <!-- VIEW: AUTHENTICATION (LOGIN/SIGNUP) -->
+        <div id="view-auth" class="hidden-section w-full max-w-md">
+            <button onclick="navigateTo('view-landing')" class="mb-4 text-slate-500 hover:text-blue-600 flex items-center gap-2 font-bold text-sm transition-colors cursor-pointer">
+                ← Back
+            </button>
+            <div class="bg-white/90 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-white/50 animate-pop-in">
+                <div class="text-center mb-6">
+                    <div id="auth-icon" class="text-6xl mb-2 animate-float inline-block">🎒</div>
+                    <h2 id="auth-title" class="text-3xl font-extrabold text-slate-800">Student Login</h2>
+                    <p class="text-sm text-slate-500">Welcome back to school!</p>
+                </div>
+
+                <!-- Tabs -->
+                <div class="flex bg-slate-100 rounded-xl p-1 mb-6">
+                    <button id="tab-login" onclick="toggleAuthMode('login')" class="flex-1 py-2 rounded-lg text-sm font-bold bg-white shadow-sm text-blue-600 transition-all cursor-pointer">Log In</button>
+                    <button id="tab-signup" onclick="toggleAuthMode('signup')" class="flex-1 py-2 rounded-lg text-sm font-bold text-slate-500 hover:text-slate-700 transition-all cursor-pointer">Sign Up</button>
+                </div>
+
+                <form id="auth-form" onsubmit="handleAuth(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Username</label>
+                        <input type="text" id="username" required class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all" placeholder="Enter your username">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Password</label>
+                        <input type="password" id="password" required class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all" placeholder="••••••••">
+                    </div>
+                    <div id="confirm-password-field" class="hidden-section">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Confirm Password</label>
+                        <input type="password" id="confirm-password" class="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all" placeholder="••••••••">
+                    </div>
+
+                    <button type="submit" id="auth-submit-btn" class="w-full py-4 mt-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold shadow-lg shadow-blue-200 hover:shadow-blue-300 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                        Let's Go! 🚀
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- VIEW: TEACHER DASHBOARD -->
+        <div id="view-teacher-dashboard" class="hidden-section w-full max-w-6xl">
+            <!-- Header -->
+            <header class="flex justify-between items-center mb-8 bg-white/70 backdrop-blur-md p-4 rounded-2xl shadow-sm border border-white/50">
+                <div class="flex items-center gap-3">
+                    <div class="bg-purple-100 p-2 rounded-lg text-2xl">🎓</div>
+                    <div>
+                        <h2 class="text-xl font-bold">Teacher Dashboard</h2>
+                        <p class="text-xs text-slate-500">Welcome, <span id="teacher-name-display" class="font-bold text-purple-600">Teacher</span></p>
+                    </div>
+                </div>
+                <button onclick="logout()" class="bg-red-50 text-red-500 px-4 py-2 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors cursor-pointer">Log Out</button>
+            </header>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Left Col: Classes & Code Generator -->
+                <div class="lg:col-span-1 space-y-6">
+                    <!-- Create Class Card -->
+                    <div class="bg-white p-6 rounded-3xl shadow-lg border border-purple-100">
+                        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">✨ Create a Class</h3>
+                        <form onsubmit="createClass(event)" class="space-y-3">
+                            <input type="text" id="class-name-input" placeholder="Class Name (e.g. Science)" class="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 outline-none focus:ring-2 focus:ring-purple-200" required>
+                            
+                            <select id="class-year" class="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 outline-none focus:ring-2 focus:ring-purple-200 cursor-pointer" onchange="toggleSectionSelect()" required>
+                                <option value="" disabled selected>Select Year</option>
+                                <option value="Year 1">Year 1</option>
+                                <option value="Year 2">Year 2</option>
+                                <option value="Year 3">Year 3</option>
+                                <option value="Year 4">Year 4</option>
+                                <option value="Year 5">Year 5</option>
+                                <option value="Year 6">Year 6</option>
+                                <option value="Year 7">Year 7</option>
+                                <option value="Year 8">Year 8</option>
+                                <option value="Year 9">Year 9</option>
+                                <option value="Year 10">Year 10</option>
+                                <option value="Year 11">Year 11</option>
+                                <option value="Year 12">Year 12</option>
+                                <option value="Year 13">Year 13</option>
+                            </select>
+                            
+                            <div id="section-select-container" class="hidden-section">
+                                <select id="class-section" class="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 outline-none focus:ring-2 focus:ring-purple-200 cursor-pointer">
+                                    <option value="" disabled selected>Select Section</option>
+                                    <option value="A">Section A</option>
+                                    <option value="B">Section B</option>
+                                </select>
+                            </div>
+                            
+                            <button type="submit" class="w-full py-3 rounded-xl bg-purple-600 text-white font-bold hover:bg-purple-700 transition-colors shadow-md shadow-purple-200 cursor-pointer">
+                                Generate Code 🪄
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- My Classes List -->
+                    <div class="bg-white/80 p-6 rounded-3xl shadow-sm border border-white">
+                        <h3 class="font-bold text-gray-700 mb-4">📚 My Classes</h3>
+                        <div id="teacher-classes-list" class="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                            <!-- Classes will be injected here -->
+                            <div class="flex items-center justify-center h-20">
+                                <div class="w-6 h-6 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Col: Homework Review -->
+                <div class="lg:col-span-2">
+                    <div class="bg-white/90 backdrop-blur-xl p-6 rounded-3xl shadow-xl border border-white h-full min-h-[500px]">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-xl text-slate-800">📝 Homework Submissions</h3>
+                            <span id="pending-count" class="bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-xs font-bold">0 Pending</span>
+                        </div>
+                        
+                        <div id="homework-feed" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Submissions go here -->
+                        </div>
+
+                        <!-- Empty State -->
+                        <div id="teacher-empty-state" class="hidden-section flex flex-col items-center justify-center h-64 text-center">
+                            <div class="text-6xl mb-4 animate-float inline-block">🤷‍♂️</div>
+                            <h3 class="text-xl font-bold text-slate-700 mb-2">Oh, there are no homeworks...</h3>
+                            <p class="text-slate-500 max-w-xs mx-auto">Why not create a class and assign some work? The students are waiting!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: STUDENT DASHBOARD -->
+        <div id="view-student-dashboard" class="hidden-section w-full max-w-5xl">
+            <!-- Header -->
+            <header class="flex justify-between items-center mb-8 bg-white/70 backdrop-blur-md p-4 rounded-2xl shadow-sm border border-white/50">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-100 p-2 rounded-lg text-2xl">🎒</div>
+                    <div>
+                        <h2 class="text-xl font-bold">Student Dashboard</h2>
+                        <p class="text-xs text-slate-500">Hi, <span id="student-name-display" class="font-bold text-blue-600">Student</span></p>
+                    </div>
+                </div>
+                <button onclick="logout()" class="bg-red-50 text-red-500 px-4 py-2 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors cursor-pointer">Log Out</button>
+            </header>
+
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+                <!-- Join Class -->
+                <div class="md:col-span-4 space-y-6">
+                    <div class="bg-white p-6 rounded-3xl shadow-lg border border-blue-100">
+                        <h3 class="font-bold text-lg mb-4 flex items-center gap-2">🔑 Join a Class</h3>
+                        <form onsubmit="joinClass(event)" class="space-y-3">
+                            <input type="text" id="class-code-input" placeholder="Enter Special Code" class="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 outline-none focus:ring-2 focus:ring-blue-200 uppercase tracking-widest text-center font-bold">
+                            <button type="submit" class="w-full py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-md shadow-blue-200 cursor-pointer">
+                                Enroll Now
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="bg-white/80 p-6 rounded-3xl shadow-sm border border-white">
+                        <h3 class="font-bold text-gray-700 mb-4">🏫 My Classes</h3>
+                        <div id="student-classes-list" class="space-y-2 max-h-[200px] overflow-y-auto">
+                            <!-- Enrolled classes -->
+                            <div class="flex items-center justify-center h-20">
+                                <div class="w-6 h-6 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload Homework -->
+                <div class="md:col-span-8">
+                    <div class="bg-white/90 backdrop-blur-xl p-6 rounded-3xl shadow-xl border border-white relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-yellow-100 rounded-bl-full -mr-8 -mt-8 opacity-50 z-0"></div>
+                        
+                        <h3 class="font-bold text-2xl mb-6 relative z-10">📸 Upload Homework</h3>
+                        
+                        <form onsubmit="submitHomework(event)" class="space-y-6 relative z-10">
+                            <!-- Class Selection -->
+                            <div>
+                                <label class="block text-sm font-bold text-slate-600 mb-2">Select Class / Teacher</label>
+                                <select id="homework-class-select" required class="w-full p-4 rounded-xl bg-slate-50 border border-slate-200 outline-none focus:border-blue-500 transition-all cursor-pointer">
+                                    <option value="" disabled selected>Choose a class...</option>
+                                    <!-- Options populated by JS -->
+                                </select>
+                            </div>
+
+                            <!-- Photo Upload Area -->
+                            <div class="border-2 border-dashed border-blue-300 rounded-2xl p-8 text-center hover:bg-blue-50 transition-colors cursor-pointer group" onclick="document.getElementById('homework-file').click()">
+                                <input type="file" id="homework-file" accept="image/*" class="hidden" onchange="previewImage(this)">
+                                <div id="upload-placeholder">
+                                    <div class="text-5xl mb-3 group-hover:scale-110 transition-transform inline-block">📷</div>
+                                    <p class="font-bold text-blue-500">Tap to take photo or upload</p>
+                                    <p class="text-xs text-slate-400 mt-1">Supports JPG, PNG</p>
+                                </div>
+                                <div id="image-preview-container" class="hidden-section relative">
+                                    <img id="image-preview" src="" alt="Preview" class="max-h-64 mx-auto rounded-xl shadow-md object-contain">
+                                    <button type="button" onclick="clearImage(event)" class="absolute top-2 right-2 bg-red-500 text-white w-8 h-8 rounded-full hover:bg-red-600 shadow-md cursor-pointer flex items-center justify-center">✕</button>
+                                </div>
+                            </div>
+
+                            <!-- Extra Suggestions / Text -->
+                            <div>
+                                <label class="block text-sm font-bold text-slate-600 mb-2">Extra Suggestions / Notes</label>
+                                <textarea id="homework-note" rows="3" placeholder="Dear teacher, I found question 3 a bit tricky..." class="w-full p-4 rounded-xl bg-slate-50 border border-slate-200 outline-none focus:border-blue-500 transition-all"></textarea>
+                            </div>
+
+                            <button type="submit" class="w-full py-4 rounded-xl bg-green-500 text-white font-bold text-lg hover:bg-green-600 shadow-lg shadow-green-200 transform hover:-translate-y-1 transition-all cursor-pointer">
+                                Submit to Teacher ✅
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Recent Submissions Status -->
+                    <div class="mt-8">
+                        <h4 class="font-bold text-slate-600 mb-4">Recent Submissions</h4>
+                        <div id="student-submissions-list" class="space-y-3">
+                            <!-- Submission status cards -->
+                            <p class="text-sm text-slate-400 italic">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Review Modal (Teacher) -->
+    <div id="review-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden-section flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl animate-pop-in relative">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-bold cursor-pointer">&times;</button>
+            
+            <h3 class="text-2xl font-bold mb-1">Review Homework</h3>
+            <p class="text-slate-500 text-sm mb-6">Submitted by <span id="modal-student-name" class="font-bold text-blue-600">Student</span></p>
+            
+            <div class="bg-slate-100 rounded-xl p-2 mb-4">
+                <img id="modal-image" src="" class="w-full rounded-lg object-contain max-h-[50vh]">
+            </div>
+            
+            <div class="bg-yellow-50 border border-yellow-100 p-4 rounded-xl mb-6">
+                <h5 class="text-xs font-bold uppercase text-yellow-600 mb-1">Student's Note:</h5>
+                <p id="modal-note" class="text-slate-700 italic">No notes.</p>
+            </div>
+            
+            <div class="flex gap-4">
+                <button onclick="closeModal()" class="flex-1 py-3 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 cursor-pointer">Close</button>
+                <button id="modal-approve-btn" class="flex-1 py-3 rounded-xl bg-green-500 text-white font-bold hover:bg-green-600 shadow-md shadow-green-200 cursor-pointer">Approve ✅</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- API & Config ---
+        const API_URL = '/api'; // Automatically connects to the server hosting the site
+        
+        const API = {
+            async health() {
+                try {
+                    const res = await fetch(`${API_URL}/health`);
+                    return res.ok;
+                } catch (e) { return false; }
+            },
+            async login(data) {
+                const res = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                return { ok: res.ok, data: await res.json() };
+            },
+            async signup(data) {
+                const res = await fetch(`${API_URL}/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                return { ok: res.ok, data: await res.json() };
+            },
+            async createClass(data) {
+                const res = await fetch(`${API_URL}/classes/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                return await res.json();
+            },
+            async joinClass(data) {
+                const res = await fetch(`${API_URL}/classes/join`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                return { ok: res.ok, data: await res.json() };
+            },
+            async getClasses() {
+                const res = await fetch(`${API_URL}/classes`);
+                return await res.json();
+            },
+            async getSubmissions() {
+                const res = await fetch(`${API_URL}/submissions`);
+                return await res.json();
+            },
+            async submitHomework(data) {
+                const res = await fetch(`${API_URL}/submissions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                return await res.json();
+            },
+            async approveSubmission(id) {
+                const res = await fetch(`${API_URL}/submissions/approve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+                return await res.json();
+            },
+            async getUser(username) {
+                const res = await fetch(`${API_URL}/user/${username}`);
+                return res.ok ? await res.json() : null;
+            }
+        };
+
+        // --- State Management ---
+        const State = {
+            currentUser: null,
+            view: 'landing',
+            authMode: 'login',
+            selectedRole: null,
+            isConnected: false
+        };
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkServer();
+            // Poll server status every 10 seconds
+            setInterval(checkServer, 10000);
+            
+            loadSession();
+        });
+
+        async function checkServer() {
+            const isUp = await API.health();
+            State.isConnected = isUp;
+            const statusEl = document.getElementById('server-status');
+            const textEl = document.getElementById('server-text');
+            
+            if (isUp) {
+                statusEl.className = 'fixed top-4 left-4 z-50 px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-600 flex items-center gap-2 shadow-sm transition-colors duration-500';
+                textEl.innerText = "Laptop SSD Server Connected";
+            } else {
+                statusEl.className = 'fixed top-4 left-4 z-50 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-600 flex items-center gap-2 shadow-sm transition-colors duration-500';
+                textEl.innerText = "Server Offline (Run 'node server.js')";
+            }
+        }
+
+        async function loadSession() {
+            const userJson = localStorage.getItem('currentUser');
+            if (userJson) {
+                let user = JSON.parse(userJson);
+                // Try to refresh data from server if online
+                if (State.isConnected) {
+                    const refreshed = await API.getUser(user.username);
+                    if (refreshed) {
+                        user = refreshed;
+                        localStorage.setItem('currentUser', JSON.stringify(user));
+                    }
+                }
+                
+                State.currentUser = user;
+                State.selectedRole = user.role;
+                State.view = State.selectedRole === 'student' ? 'student-dashboard' : 'teacher-dashboard';
+                render();
+            } else {
+                render();
+            }
+        }
+
+        function render() {
+            // Hide all views
+            document.querySelectorAll('#app > div').forEach(el => el.classList.add('hidden-section'));
+            
+            if (!State.currentUser) {
+                if (State.view === 'landing') document.getElementById('view-landing').classList.remove('hidden-section');
+                else if (State.view === 'auth') document.getElementById('view-auth').classList.remove('hidden-section');
+                else document.getElementById('view-landing').classList.remove('hidden-section');
+            } else {
+                if (State.currentUser.role === 'teacher') {
+                    document.getElementById('view-teacher-dashboard').classList.remove('hidden-section');
+                    loadTeacherData();
+                } else {
+                    document.getElementById('view-student-dashboard').classList.remove('hidden-section');
+                    loadStudentData();
+                }
+            }
+        }
+
+        // --- Navigation ---
+        function navigateTo(viewId) {
+            State.view = viewId.replace('view-', '');
+            render();
+        }
+
+        function navigateToAuth(role) {
+            State.selectedRole = role;
+            State.view = 'auth';
+            const title = document.getElementById('auth-title');
+            const icon = document.getElementById('auth-icon');
+            
+            if (role === 'student') {
+                title.innerText = 'Student Login';
+                icon.innerText = '🎒';
+            } else {
+                title.innerText = 'Teacher Login';
+                icon.innerText = '🎓';
+            }
+            toggleAuthMode('login');
+            render();
+        }
+
+        function toggleAuthMode(mode) {
+            State.authMode = mode;
+            const btnLogin = document.getElementById('tab-login');
+            const btnSignup = document.getElementById('tab-signup');
+            const confirmPass = document.getElementById('confirm-password-field');
+            const title = document.getElementById('auth-title');
+            
+            if (mode === 'signup') {
+                btnLogin.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+                btnLogin.classList.add('text-slate-500');
+                btnSignup.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+                btnSignup.classList.remove('text-slate-500');
+                confirmPass.classList.remove('hidden-section');
+                title.innerText = State.selectedRole === 'student' ? 'Student Sign Up' : 'Teacher Sign Up';
+            } else {
+                btnLogin.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+                btnLogin.classList.remove('text-slate-500');
+                btnSignup.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+                btnSignup.classList.add('text-slate-500');
+                confirmPass.classList.add('hidden-section');
+                title.innerText = State.selectedRole === 'student' ? 'Student Login' : 'Teacher Login';
+            }
+        }
+
+        // --- Auth Logic ---
+        async function handleAuth(e) {
+            e.preventDefault();
+            if (!State.isConnected) return showToast('Error', 'Server is offline. Cannot login/signup.');
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const submitBtn = document.getElementById('auth-submit-btn');
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Checking...';
+
+            try {
+                if (State.authMode === 'signup') {
+                    const confirmPassword = document.getElementById('confirm-password').value;
+                    if (password !== confirmPassword) {
+                        showToast('Error', 'Passwords do not match');
+                        return;
+                    }
+
+                    const { ok, data } = await API.signup({ username, password, role: State.selectedRole });
+                    if (ok) {
+                        loginUser(data);
+                        triggerConfetti();
+                        showToast('Success', 'Account created on SSD! 🎉');
+                    } else {
+                        showToast('Error', data.error);
+                    }
+
+                } else {
+                    const { ok, data } = await API.login({ username, password, role: State.selectedRole });
+                    if (ok) {
+                        loginUser(data);
+                        triggerConfetti();
+                        showToast('Welcome', `Hello ${data.username}! 👋`);
+                    } else {
+                        showToast('Error', data.error || 'Invalid credentials');
+                    }
+                }
+            } catch (err) {
+                showToast('Error', 'Connection failed');
+                console.error(err);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Let's Go! 🚀";
+            }
+        }
+
+        function loginUser(user) {
+            State.currentUser = user;
+            localStorage.setItem('currentUser', JSON.stringify(user));
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            render();
+        }
+
+        function logout() {
+            localStorage.removeItem('currentUser');
+            State.currentUser = null;
+            State.view = 'landing';
+            render();
+        }
+
+        // --- Teacher Logic ---
+        function toggleSectionSelect() {
+            const year = document.getElementById('class-year').value;
+            const sectionContainer = document.getElementById('section-select-container');
+            const needsSection = ['Year 1', 'Year 2', 'Year 3', 'Year 4'].includes(year);
+            if (needsSection) {
+                sectionContainer.classList.remove('hidden-section');
+                document.getElementById('class-section').required = true;
+            } else {
+                sectionContainer.classList.add('hidden-section');
+                document.getElementById('class-section').required = false;
+                document.getElementById('class-section').value = "";
+            }
+        }
+
+        async function createClass(e) {
+            e.preventDefault();
+            if (!State.isConnected) return showToast('Error', 'Server offline');
+
+            const nameInput = document.getElementById('class-name-input').value;
+            const year = document.getElementById('class-year').value;
+            const section = document.getElementById('class-section').value;
+            
+            // Format name nicely
+            let fullClassName = nameInput;
+            if (section) fullClassName += ` (${year} - ${section})`;
+            else fullClassName += ` (${year})`;
+
+            const newClass = await API.createClass({
+                name: fullClassName,
+                year,
+                section,
+                teacherUsername: State.currentUser.username
+            });
+            
+            showToast('Success', `Class created! Code: ${newClass.code}`);
+            loadTeacherData();
+            e.target.reset();
+            toggleSectionSelect();
+        }
+
+        async function loadTeacherData() {
+            document.getElementById('teacher-name-display').innerText = State.currentUser.username;
+            
+            if (!State.isConnected) return;
+
+            // Fetch Classes
+            const allClasses = await API.getClasses();
+            const myClasses = allClasses.filter(c => c.teacherUsername === State.currentUser.username);
+            
+            const listEl = document.getElementById('teacher-classes-list');
+            listEl.innerHTML = '';
+            
+            if (myClasses.length === 0) {
+                listEl.innerHTML = '<p class="text-sm text-gray-400 italic text-center py-4">No classes created yet.</p>';
+            } else {
+                myClasses.forEach(c => {
+                    const el = document.createElement('div');
+                    el.className = 'flex justify-between items-center bg-purple-50 p-3 rounded-xl border border-purple-100 animate-fade-in';
+                    el.innerHTML = `
+                        <div>
+                            <p class="font-bold text-slate-700">${c.name}</p>
+                            <p class="text-xs text-purple-600 font-mono">Code: ${c.code}</p>
+                        </div>
+                        <div class="bg-white p-2 rounded-lg shadow-sm">🏫</div>
+                    `;
+                    listEl.appendChild(el);
+                });
+            }
+
+            // Fetch Submissions
+            loadTeacherSubmissions(myClasses);
+        }
+
+        async function loadTeacherSubmissions(myClasses) {
+            const allSubmissions = await API.getSubmissions();
+            // Filter submissions for this teacher
+            const mySubmissions = allSubmissions.filter(s => s.teacherUsername === State.currentUser.username && s.status === 'pending');
+            
+            const feed = document.getElementById('homework-feed');
+            const emptyState = document.getElementById('teacher-empty-state');
+            const pendingCount = document.getElementById('pending-count');
+            
+            feed.innerHTML = '';
+            pendingCount.innerText = `${mySubmissions.length} Pending`;
+
+            if (mySubmissions.length === 0) {
+                feed.classList.add('hidden-section');
+                emptyState.classList.remove('hidden-section');
+            } else {
+                feed.classList.remove('hidden-section');
+                emptyState.classList.add('hidden-section');
+
+                mySubmissions.forEach(sub => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-white p-4 rounded-2xl shadow-md border border-slate-100 flex flex-col gap-3 animate-fade-in';
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-600">
+                                    ${sub.studentUsername.substring(0,2).toUpperCase()}
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-sm">${sub.studentUsername}</h4>
+                                    <p class="text-xs text-slate-400">${new Date(sub.timestamp).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                            <span class="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500">${sub.className || 'Class'}</span>
+                        </div>
+                        <div class="h-32 bg-slate-100 rounded-xl overflow-hidden relative group cursor-pointer" onclick="openReviewModal('${sub.id}')">
+                            <img src="${sub.imageSrc}" class="w-full h-full object-cover">
+                            <div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
+                        </div>
+                        <button onclick="openReviewModal('${sub.id}')" class="w-full py-2 bg-blue-500 text-white rounded-xl text-sm font-bold hover:bg-blue-600 transition-colors shadow-blue-200 shadow-sm cursor-pointer">
+                            Review Submission
+                        </button>
+                    `;
+                    feed.appendChild(card);
+                });
+            }
+        }
+
+        // --- Student Logic ---
+        async function joinClass(e) {
+            e.preventDefault();
+            if (!State.isConnected) return showToast('Error', 'Server offline');
+
+            const codeInput = document.getElementById('class-code-input');
+            const code = codeInput.value.trim().toUpperCase();
+
+            const { ok, data } = await API.joinClass({
+                code,
+                studentUsername: State.currentUser.username
+            });
+
+            if (ok) {
+                showToast('Success', `Joined ${data.className}!`);
+                State.currentUser = data.user;
+                localStorage.setItem('currentUser', JSON.stringify(State.currentUser));
+                loadStudentData();
+                codeInput.value = '';
+            } else {
+                showToast('Error', data.error || 'Failed to join');
+            }
+        }
+
+        async function loadStudentData() {
+            document.getElementById('student-name-display').innerText = State.currentUser.username;
+            if (!State.isConnected) return;
+
+            // Load Classes
+            const enrolledCodes = State.currentUser.enrolledClasses || [];
+            const allClasses = await API.getClasses();
+            const myClasses = allClasses.filter(c => enrolledCodes.includes(c.code));
+            
+            const listEl = document.getElementById('student-classes-list');
+            const selectEl = document.getElementById('homework-class-select');
+            
+            listEl.innerHTML = '';
+            selectEl.innerHTML = '<option value="" disabled selected>Choose a class...</option>';
+            
+            if (myClasses.length === 0) {
+                listEl.innerHTML = '<p class="text-sm text-gray-400 italic text-center py-2">Not enrolled in any classes.</p>';
+            } else {
+                myClasses.forEach(c => {
+                    // List Item
+                    const item = document.createElement('div');
+                    item.className = 'flex items-center gap-3 bg-blue-50 p-3 rounded-xl border border-blue-100 animate-fade-in';
+                    item.innerHTML = `
+                        <div class="bg-white p-2 rounded-full text-lg">📘</div>
+                        <div>
+                            <p class="font-bold text-sm text-slate-700">${c.name}</p>
+                            <p class="text-xs text-slate-500">Teacher: ${c.teacherUsername}</p>
+                        </div>
+                    `;
+                    listEl.appendChild(item);
+                    
+                    // Select Option
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify({ code: c.code, teacher: c.teacherUsername, name: c.name });
+                    option.innerText = `${c.name} (${c.teacherUsername})`;
+                    selectEl.appendChild(option);
+                });
+            }
+
+            loadStudentSubmissions();
+        }
+
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('image-preview').src = e.target.result;
+                    document.getElementById('image-preview-container').classList.remove('hidden-section');
+                    document.getElementById('upload-placeholder').classList.add('hidden-section');
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function clearImage(e) {
+            if(e) e.stopPropagation();
+            document.getElementById('homework-file').value = '';
+            document.getElementById('image-preview').src = '';
+            document.getElementById('image-preview-container').classList.add('hidden-section');
+            document.getElementById('upload-placeholder').classList.remove('hidden-section');
+        }
+
+        async function submitHomework(e) {
+            e.preventDefault();
+            if (!State.isConnected) return showToast('Error', 'Server offline');
+
+            const selectVal = document.getElementById('homework-class-select').value;
+            const note = document.getElementById('homework-note').value;
+            const fileInput = document.getElementById('homework-file');
+            
+            if (!selectVal) return showToast('Error', 'Please select a class');
+            if (!fileInput.files[0]) return showToast('Error', 'Please upload a photo');
+            
+            const classData = JSON.parse(selectVal);
+            
+            const reader = new FileReader();
+            reader.readAsDataURL(fileInput.files[0]);
+            reader.onload = async function () {
+                const base64Image = reader.result;
+                
+                const submissionData = {
+                    studentUsername: State.currentUser.username,
+                    classCode: classData.code,
+                    className: classData.name,
+                    teacherUsername: classData.teacher,
+                    imageSrc: base64Image,
+                    note: note
+                };
+                
+                await API.submitHomework(submissionData);
+                
+                triggerConfetti();
+                showToast('Great Job! 🌟', 'Homework saved to Server SSD!');
+                
+                e.target.reset();
+                clearImage();
+                loadStudentSubmissions();
+            };
+        }
+
+        async function loadStudentSubmissions() {
+            const allSubmissions = await API.getSubmissions();
+            const mySubmissions = allSubmissions.filter(s => s.studentUsername === State.currentUser.username).reverse();
+            
+            const list = document.getElementById('student-submissions-list');
+            list.innerHTML = '';
+            
+            if (mySubmissions.length === 0) {
+                list.innerHTML = '<p class="text-sm text-slate-400 italic">No submissions yet.</p>';
+                return;
+            }
+            
+            mySubmissions.slice(0, 5).forEach(s => {
+                const el = document.createElement('div');
+                const statusColor = s.status === 'approved' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200';
+                const statusIcon = s.status === 'approved' ? '✅ Approved' : '⏳ Pending';
+                
+                el.className = `p-3 rounded-xl border ${statusColor} flex justify-between items-center text-sm animate-fade-in`;
+                el.innerHTML = `
+                    <div>
+                        <span class="font-bold block">${s.className}</span>
+                        <span class="text-xs opacity-80">${new Date(s.timestamp).toLocaleDateString()}</span>
+                    </div>
+                    <span class="font-bold text-xs px-2 py-1 bg-white/50 rounded-lg">${statusIcon}</span>
+                `;
+                list.appendChild(el);
+            });
+        }
+
+        // --- Review Modal Logic ---
+        let currentReviewId = null;
+
+        async function openReviewModal(subId) {
+            // Need to find submission from API or cache. 
+            // For simplicity, re-fetch all for finding one or store in local var
+            const all = await API.getSubmissions();
+            const sub = all.find(s => s.id === subId);
+            if(!sub) return;
+
+            currentReviewId = subId;
+            document.getElementById('modal-student-name').innerText = sub.studentUsername;
+            document.getElementById('modal-image').src = sub.imageSrc;
+            document.getElementById('modal-note').innerText = sub.note || "No notes.";
+            
+            document.getElementById('review-modal').classList.remove('hidden-section');
+            document.getElementById('modal-approve-btn').onclick = () => approveHomework(subId);
+        }
+
+        function closeModal() {
+            document.getElementById('review-modal').classList.add('hidden-section');
+            currentReviewId = null;
+        }
+
+        async function approveHomework(subId) {
+            if (!State.isConnected) return showToast('Error', 'Server offline');
+            
+            await API.approveSubmission(subId);
+            triggerConfetti();
+            showToast('Done!', 'Homework approved on Server.');
+            closeModal();
+            loadTeacherData();
+        }
+
+        function triggerConfetti() {
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#60a5fa', '#a78bfa', '#f472b6', '#34d399']
+            });
+        }
+
+        // --- Utilities ---
+        function showToast(title, message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-title').innerText = title;
+            document.getElementById('toast-message').innerText = message;
+            
+            toast.classList.remove('translate-x-full');
+            setTimeout(() => {
+                toast.classList.add('translate-x-full');
+            }, 3000);
+        }
+
+    </script>
+</body>
+</html>
